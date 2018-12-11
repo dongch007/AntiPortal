@@ -1,11 +1,17 @@
-﻿using System.Collections;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class AntiPortalCuller : MonoBehaviour {
 
-	// Use this for initialization
-	void Start () {
+    [SerializeField]
+    private int minRendererNum = 0;
+
+    [SerializeField]
+    private int maxOccluderNum = 16;
+
+    // Use this for initialization
+    void Start () {
 
 	}
 	
@@ -26,7 +32,7 @@ public class AntiPortalCuller : MonoBehaviour {
         this.occluders.Add(occluder);
     }
 
-    private List<Renderer> occludedRenderers = new List<Renderer>();
+    private List<bool> visableFlag = new List<bool>();
 
     private void OnPreRender()
     {
@@ -39,16 +45,19 @@ public class AntiPortalCuller : MonoBehaviour {
         if (this.occludees.Count == 0)
             return;
 
-        foreach(Occludee occludee in this.occludees)
-        {
-            this.occludedRenderers.Add(occludee.GetRenderer());
-        }
+        for (int i = 0; i < this.occludees.Count; i++)
+            this.visableFlag.Add(true);
 
 
-        foreach (Renderer renderer in this.occludedRenderers)
+
+
+        for (int i = 0; i < this.occludees.Count; i++)
+            this.visableFlag[i] = false;
+
+
+        for (int i = 0; i < this.occludees.Count; i++)
         {
-            renderer.material.color = Color.red;
-            //renderer.enabled = false;
+            this.occludees[i].SetVisable(this.visableFlag[i]);
         }
 
         //this.occludees.Clear();
@@ -60,15 +69,12 @@ public class AntiPortalCuller : MonoBehaviour {
         Debug.Log("OnPostRender " + Time.frameCount);
 
 
-        foreach (Renderer renderer in this.occludedRenderers)
-        {
-            renderer.material.color = Color.white;
-            //renderer.enabled = true;
-        }
-
-        occludedRenderers.Clear();
+        foreach (Occludee occludee in this.occludees)
+            occludee.SetVisable(true);
 
         this.occludees.Clear();
         this.occluders.Clear();
+
+        this.visableFlag.Clear();
     }
 }

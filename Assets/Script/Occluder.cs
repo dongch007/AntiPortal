@@ -7,6 +7,11 @@ public class Occluder : MonoBehaviour {
     public Vector3 center = Vector3.zero;
     public Vector3 extends = Vector3.one;
 
+    void Start()
+    {
+
+    }
+
     private void OnWillRenderObject()
     {
         Camera camera = Camera.current;
@@ -14,8 +19,6 @@ public class Occluder : MonoBehaviour {
         if (culler != null)
         {
             Debug.Log("Occluder.OnWillRenderObject " + Time.frameCount);
-
-            
 
             culler.AddOccluder(this);
         }

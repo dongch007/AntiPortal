@@ -11,6 +11,7 @@ public class AntiPortalHelper
         {
             GameObject cubeGo = GameObject.CreatePrimitive(PrimitiveType.Cube);
             cubeGo.hideFlags = HideFlags.HideAndDontSave;
+            cubeGo.SetActive(false);
             cube = cubeGo.GetComponent<MeshFilter>().sharedMesh;
         }
 
