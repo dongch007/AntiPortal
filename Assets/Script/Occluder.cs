@@ -244,14 +244,8 @@ public class Occluder : MonoBehaviour
         //    this.transform.hasChanged = false;
         //}
 
-        if (this.corners != null)
+        if (Application.isPlaying)
         {
-            Gizmos.color = Color.black;
-            foreach (Vector3 corner in this.corners)
-            {
-                Gizmos.DrawSphere(corner, 0.2f);
-            }
-
             GUIStyle style = new GUIStyle();
             style.fontSize = 17;
             UnityEditor.Handles.Label(this.transform.position, this.screenArea.ToString(), style);

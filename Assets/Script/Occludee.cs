@@ -79,7 +79,12 @@ public class Occludee : MonoBehaviour {
         }
     }
 
-    private void OnDrawGizmos()
+    public int GetRendererNum()
+    {
+        return this.renderers.Count;
+    }
+
+    private void OnDrawGizmosSelected()
     {
         Renderer renderer = this.GetComponent<Renderer>();
         if (renderer != null)

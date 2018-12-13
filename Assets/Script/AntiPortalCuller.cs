@@ -22,10 +22,13 @@ public class AntiPortalCuller : MonoBehaviour {
 		
 	}
 
+    private int rendererNum = 0;
     private List<Occludee> occludees = new List<Occludee>();
     public void AddOccludee(Occludee occludee)
     {
         this.occludees.Add(occludee);
+
+        this.rendererNum += occludee.GetRendererNum();
     }
 
     private List<Occluder> occluders = new List<Occluder>();
@@ -38,14 +41,12 @@ public class AntiPortalCuller : MonoBehaviour {
     }
 
     private List<bool> visableFlag = new List<bool>();
-
     private void OnPreRender()
     {
         if (this.occluders.Count == 0)
             return;
 
-        //need a min count?
-        if (this.occludees.Count == 0)
+        if (this.rendererNum <= this.minRendererNum)
             return;
 
         float fTime = Time.realtimeSinceStartup;
@@ -58,11 +59,13 @@ public class AntiPortalCuller : MonoBehaviour {
 
         this.occluders.Sort((x, y) => -x.ScreenArea.CompareTo(y.ScreenArea));
         int occluderNum = Mathf.Min(this.occluders.Count, this.maxOccluderNum);
-        for(int i = 0; i < occluderNum; i++)
+        fTime = Time.realtimeSinceStartup;
+        for (int i = 0; i < occluderNum; i++)
         {
             Occluder occluder = this.occluders[i];
 
             List<Plane> cullPlanes = occluder.CalculateCullPlanes(viewPos, viewDir);
+
             for (int occludeeIdx = 0; occludeeIdx < this.occludees.Count; occludeeIdx++)
             {
                 if (this.visableFlag[occludeeIdx] == false)
@@ -70,11 +73,12 @@ public class AntiPortalCuller : MonoBehaviour {
 
                 Bounds bounds = this.occludees[occludeeIdx].GetBounds();
 
-                //if (this.CullAABB(cullPlanes, bounds))
-                //    this.visableFlag[occludeeIdx] = false;
-                this.visableFlag[occludeeIdx] = !this.CullAABB(cullPlanes, bounds);
+                if (this.CullAABB(cullPlanes, bounds))
+                    this.visableFlag[occludeeIdx] = false;
             }
         }
+
+        Debug.Log("Cull cost: " + (Time.realtimeSinceStartup - fTime) * 1000);
 
         for (int i = 0; i < this.occludees.Count; i++)
         {
@@ -82,7 +86,6 @@ public class AntiPortalCuller : MonoBehaviour {
                 this.occludees[i].SetVisable(false);
         }
 
-        Debug.Log("Cull cost: " + (Time.realtimeSinceStartup-fTime)*1000);
         int culledNum = 0;
         for (int i = 0; i < this.occludees.Count; i++)
         {
@@ -95,23 +98,97 @@ public class AntiPortalCuller : MonoBehaviour {
 
     private void OnPostRender()
     {
-        for (int i = 0; i < this.occludees.Count; i++)
+        if (this.visableFlag.Count > 0)
         {
-            if (this.visableFlag[i] == false)
-                this.occludees[i].SetVisable(true);
+            for (int i = 0; i < this.occludees.Count; i++)
+            {
+                if (this.visableFlag[i] == false)
+                    this.occludees[i].SetVisable(true);
+            }
+
+#if UNITY_EDITOR
+            //debug mode
+            GL.Clear(true, false, Color.black);
+            GL.Begin(GL.LINES);
+            GL.Color(Color.red);
+            for (int i = 0; i < this.occludees.Count; i++)
+            {
+                if (this.visableFlag[i] == false)
+                {
+                    Bounds bound = this.occludees[i].GetBounds();
+                    Vector3 min = bound.min;
+                    Vector3 max = bound.max;
+                    //front
+                    GL.Vertex3(min.x, min.y, min.z);
+                    GL.Vertex3(max.x, min.y, min.z);
+
+                    GL.Vertex3(min.x, min.y, min.z);
+                    GL.Vertex3(min.x, max.y, min.z);
+
+                    GL.Vertex3(min.x, max.y, min.z);
+                    GL.Vertex3(max.x, max.y, min.z);
+
+                    GL.Vertex3(max.x, max.y, min.z);
+                    GL.Vertex3(max.x, min.y, min.z);
+
+                    //back
+                    GL.Vertex3(min.x, min.y, max.z);
+                    GL.Vertex3(max.x, min.y, max.z);
+
+                    GL.Vertex3(min.x, min.y, max.z);
+                    GL.Vertex3(min.x, max.y, max.z);
+
+                    GL.Vertex3(min.x, max.y, max.z);
+                    GL.Vertex3(max.x, max.y, max.z);
+
+                    GL.Vertex3(max.x, max.y, max.z);
+                    GL.Vertex3(max.x, min.y, max.z);
+
+                    //
+                    GL.Vertex3(min.x, min.y, min.z);
+                    GL.Vertex3(min.x, min.y, max.z);
+
+                    GL.Vertex3(min.x, max.y, min.z);
+                    GL.Vertex3(min.x, max.y, max.z);
+
+                    GL.Vertex3(max.x, min.y, min.z);
+                    GL.Vertex3(max.x, min.y, max.z);
+
+                    GL.Vertex3(max.x, max.y, min.z);
+                    GL.Vertex3(max.x, max.y, max.z);
+                }
+            }
+            GL.End();
+
+            this.occludedBounds.Clear();
+            for (int i = 0; i < this.occludees.Count; i++)
+            {
+                if (this.visableFlag[i] == false)
+                {
+                    this.occludedBounds.Add(this.occludees[i].GetBounds());
+                }
+            }
+#endif
         }
 
         this.occludees.Clear();
         this.occluders.Clear();
 
         this.visableFlag.Clear();
+        this.rendererNum = 0;
     }
 
+    //http://old.cescg.org/CESCG-2002/DSykoraJJelinek/
     private bool CullAABB(List<Plane> planes, Bounds bounds)
     {
-        foreach(Plane plane in planes)
+        foreach (Plane plane in planes)
         {
             float distance = plane.GetDistanceToPoint(bounds.center);
+            if (distance >= 0)
+                return false;
+
+            //todo
+            //precal abs normal
             Vector3 normal = plane.normal;
             normal.x = Mathf.Abs(normal.x);
             normal.y = Mathf.Abs(normal.y);
@@ -125,9 +202,40 @@ public class AntiPortalCuller : MonoBehaviour {
         return true;
     }
 
+    //List<int> normalFlags = new List<int>();
+    //normalFlags.Clear();
+    //foreach (Plane plane in cullPlanes)
+    //{
+    //    normalFlags.Add(plane.normal.x < 0 ? 0 : 1);
+    //    normalFlags.Add(plane.normal.y < 0 ? 0 : 1);
+    //    normalFlags.Add(plane.normal.z < 0 ? 0 : 1);
+    //}
+    //Vector3[] v = new Vector3[2];
+    //private bool CullAABB(List<Plane> planes, List<int> normalFlags, Bounds bounds)
+    //{
+    //    v[0] = bounds.min;
+    //    v[1] = bounds.max;
+    //    int i = 0;
+    //    foreach (Plane plane in planes)
+    //    {
+    //        Vector3 normal = plane.normal;
+    //        Vector3 p = new Vector3(this.v[normalFlags[i]].x, this.v[normalFlags[i + 1]].y, this.v[normalFlags[i + 2]].z);
+
+    //        float distance = plane.GetDistanceToPoint(p);
+
+    //        if (distance > 0)
+    //            return false;
+
+    //        i += 3;
+    //    }
+
+    //    return true;
+    //}
+
 #if UNITY_EDITOR
     private void OnDrawGizmos()
     {
+        //draw select occluder
         GameObject go = UnityEditor.Selection.activeGameObject;
         if(go != null)
         {
@@ -144,6 +252,18 @@ public class AntiPortalCuller : MonoBehaviour {
                     Gizmos.DrawRay(viewPos, (v-viewPos)*100);
                 }
             }
+        }
+    }
+
+    private List<Bounds> occludedBounds = new List<Bounds>();
+    private void OnDrawGizmosSelected()
+    {
+        //Gizmos.color = Color.red;
+        Gizmos.color = new Color(1.0f, 0.0f, 0.0f, 0.5f);
+        foreach (Bounds bound in this.occludedBounds)
+        {
+            //Gizmos.DrawWireCube(bound.center, bound.extents*2);
+            Gizmos.DrawCube(bound.center, bound.extents * 2.001f);
         }
     }
 #endif
