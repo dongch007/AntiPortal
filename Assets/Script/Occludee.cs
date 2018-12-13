@@ -12,7 +12,7 @@ public class Occludee : MonoBehaviour {
 
     private List<Renderer> renderers = new List<Renderer>();
 
-    private Bounds bounds = new Bounds();
+    private Bounds bounds;
     private int lastFrame = -1;
 
 	void Start ()
@@ -40,8 +40,6 @@ public class Occludee : MonoBehaviour {
         AntiPortalCuller culler = Camera.current.GetComponent<AntiPortalCuller>();
         if (culler != null)
         {
-            Debug.Log("Occludee.OnWillRenderObject " + Time.frameCount);
-
             if(this.isStatic == false)
             {
                 //a GameObject maybe render multiple times in one frame, just update bounds once
@@ -59,12 +57,11 @@ public class Occludee : MonoBehaviour {
     //only when this.
     private void CalculateBounds()
     {
-        this.bounds.center = Vector3.zero;
-        this.bounds.extents = Vector3.zero;
+        this.bounds = this.renderers[0].bounds;
 
-        foreach(Renderer renderer in this.renderers)
+        for(int i = 1; i < this.renderers.Count; i++)
         {
-            this.bounds.Encapsulate(renderer.bounds);
+            this.bounds.Encapsulate(this.renderers[i].bounds);
         }
     }
 
@@ -78,6 +75,7 @@ public class Occludee : MonoBehaviour {
         foreach (Renderer renderer in this.renderers)
         {
             renderer.enabled = visable;
+            //renderer.material.color = visable ? Color.white : Color.red;
         }
     }
 

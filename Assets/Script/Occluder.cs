@@ -14,6 +14,7 @@ public class Occluder : MonoBehaviour
         public int[] egdes;
         public int[] egdesCCW;
 
+        //idx shound be clockwise
         public Face(Vector3[] corners, int idx0, int idx1, int idx2, int idx3)
         {
             this.plane = new Plane(corners[idx0], corners[idx1], corners[idx2]);
@@ -36,27 +37,6 @@ public class Occluder : MonoBehaviour
     private Face[] faces = new Face[6];
 
     private List<Plane> cullPlanes = new List<Plane>();
-
-
-    //idx shound be clockwise
-    public void InitFace(int faceIdx, int idx0, int idx1, int idx2, int idx3)
-    {
-        Face face = this.faces[faceIdx];
-
-        Plane plane = new Plane(corners[idx0], corners[idx1], corners[idx2]);
-        face.plane = plane;
-
-
-        face.egdes[0] = idx0 << 8 | idx1;
-        face.egdes[1] = idx1 << 8 | idx2;
-        face.egdes[2] = idx2 << 8 | idx3;
-        face.egdes[3] = idx3 << 8 | idx0;
-
-        face.egdesCCW[0] = idx1 << 8 | idx0;
-        face.egdesCCW[1] = idx2 << 8 | idx1;
-        face.egdesCCW[2] = idx3 << 8 | idx2;
-        face.egdesCCW[3] = idx0 << 8 | idx3;
-    }
 
     void Start()
     {
@@ -112,8 +92,6 @@ public class Occluder : MonoBehaviour
         AntiPortalCuller culler = camera.GetComponent<AntiPortalCuller>();
         if (culler != null)
         {
-            Debug.Log("Occluder.OnWillRenderObject " + Time.frameCount);
-
             Vector2 min = Vector2.positiveInfinity;
             Vector2 max = Vector2.negativeInfinity;
             foreach (Vector3 corner in this.corners)
@@ -151,6 +129,7 @@ public class Occluder : MonoBehaviour
         }
     }
 
+    //http://www.gamasutra.com/view/feature/131388/rendering_the_great_outdoors_fast_.php?page=3
     HashSet<int> edges = new HashSet<int>();
     public List<Plane> CalculateCullPlanes(Vector3 viewPos, Vector3 viewDir)
     {

@@ -41,14 +41,14 @@ public class AntiPortalCuller : MonoBehaviour {
 
     private void OnPreRender()
     {
-        Debug.Log("OnPreRender " + Time.frameCount);
-
         if (this.occluders.Count == 0)
             return;
 
         //need a min count?
         if (this.occludees.Count == 0)
             return;
+
+        float fTime = Time.realtimeSinceStartup;
 
         for (int i = 0; i < this.occludees.Count; i++)
             this.visableFlag.Add(true);
@@ -65,35 +65,41 @@ public class AntiPortalCuller : MonoBehaviour {
             List<Plane> cullPlanes = occluder.CalculateCullPlanes(viewPos, viewDir);
             for (int occludeeIdx = 0; occludeeIdx < this.occludees.Count; occludeeIdx++)
             {
+                if (this.visableFlag[occludeeIdx] == false)
+                    continue;
+
                 Bounds bounds = this.occludees[occludeeIdx].GetBounds();
-                int num = 0;
-                foreach (Plane plane in cullPlanes)
-                {
-                    if (this.TestPlaneAABBOutside(plane, bounds) == false)
-                        break;
 
-                    num++;
-                }
-
-                if(num == cullPlanes.Count)
-                    this.visableFlag[occludeeIdx] = false;
+                //if (this.CullAABB(cullPlanes, bounds))
+                //    this.visableFlag[occludeeIdx] = false;
+                this.visableFlag[occludeeIdx] = !this.CullAABB(cullPlanes, bounds);
             }
         }
 
-
         for (int i = 0; i < this.occludees.Count; i++)
         {
-            this.occludees[i].SetVisable(this.visableFlag[i]);
+            if(this.visableFlag[i] == false)
+                this.occludees[i].SetVisable(false);
         }
+
+        Debug.Log("Cull cost: " + (Time.realtimeSinceStartup-fTime)*1000);
+        int culledNum = 0;
+        for (int i = 0; i < this.occludees.Count; i++)
+        {
+            if (this.visableFlag[i] == false)
+                culledNum++;
+        }
+        Debug.Log("Total: " + this.occludees.Count);
+        Debug.Log("Culled: " + culledNum);
     }
 
     private void OnPostRender()
     {
-        Debug.Log("OnPostRender " + Time.frameCount);
-
-
-        foreach (Occludee occludee in this.occludees)
-            occludee.SetVisable(true);
+        for (int i = 0; i < this.occludees.Count; i++)
+        {
+            if (this.visableFlag[i] == false)
+                this.occludees[i].SetVisable(true);
+        }
 
         this.occludees.Clear();
         this.occluders.Clear();
@@ -101,24 +107,44 @@ public class AntiPortalCuller : MonoBehaviour {
         this.visableFlag.Clear();
     }
 
-    private bool TestPlaneAABBOutside(Plane plane, Bounds bounds)
+    private bool CullAABB(List<Plane> planes, Bounds bounds)
     {
-        //float distance = plane.GetDistanceToPoint(bounds.center);
-        //float radius = Vector3.Dot(bounds.extents, plane.normal);
+        foreach(Plane plane in planes)
+        {
+            float distance = plane.GetDistanceToPoint(bounds.center);
+            Vector3 normal = plane.normal;
+            normal.x = Mathf.Abs(normal.x);
+            normal.y = Mathf.Abs(normal.y);
+            normal.z = Mathf.Abs(normal.z);
+            float radius = Vector3.Dot(bounds.extents, normal);
 
-        //if ((distance + radius) < 0)
-        //    return true;
-
-        //return false; 
+            if ((distance + radius) > 0)
+                return false;
+        }
 
         return true;
     }
 
-
 #if UNITY_EDITOR
     private void OnDrawGizmos()
     {
+        GameObject go = UnityEditor.Selection.activeGameObject;
+        if(go != null)
+        {
+            Occluder occluder = go.GetComponent<Occluder>();
+            if (occluder != null)
+            {
+                Vector3 viewPos = this.transform.position;
+                Vector3 viewDir = this.transform.forward;
 
+                Vector3[] contour = occluder.getContour(viewPos, viewDir);
+                Gizmos.color = Color.white;
+                foreach (Vector3 v in contour)
+                {
+                    Gizmos.DrawRay(viewPos, (v-viewPos)*100);
+                }
+            }
+        }
     }
 #endif
 }
