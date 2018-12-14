@@ -4,7 +4,6 @@ using UnityEngine;
 
 public class Occluder : MonoBehaviour
 {
-
     public Vector3 center = Vector3.zero;
     public Vector3 extends = Vector3.one;
 
@@ -166,6 +165,7 @@ public class Occluder : MonoBehaviour
         return this.cullPlanes;
     }
 
+#if UNITY_EDITOR
     public Vector3[] getContour(Vector3 viewPos, Vector3 viewDir)
     {
         foreach (Face face in this.faces)
@@ -217,7 +217,6 @@ public class Occluder : MonoBehaviour
         //Gizmos.DrawWireMesh(AntiPortalHelper.GetCube(), this.transform.position, this.transform.rotation, Vector3.Scale(this.extends, this.transform.localScale) * 2.0f);
     }
 
-#if UNITY_EDITOR
     private void OnDrawGizmosSelected()
     {
         //if(this.transform.hasChanged)

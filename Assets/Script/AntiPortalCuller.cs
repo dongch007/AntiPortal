@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public class AntiPortalCuller : MonoBehaviour {
-
+    
     [SerializeField]
     private int minRendererNum = 0;
 
@@ -15,7 +15,7 @@ public class AntiPortalCuller : MonoBehaviour {
 
     // Use this for initialization
     void Start () {
-	}
+    }
 	
 	// Update is called once per frame
 	void Update () {
@@ -40,7 +40,8 @@ public class AntiPortalCuller : MonoBehaviour {
         this.occluders.Add(occluder);
     }
 
-    private List<bool> visableFlag = new List<bool>();
+    private List<bool> occludeeVisable = new List<bool>();
+    private List<bool> occluderVisable = new List<bool>();
     private void OnPreRender()
     {
         if (this.occluders.Count == 0)
@@ -52,7 +53,10 @@ public class AntiPortalCuller : MonoBehaviour {
         float fTime = Time.realtimeSinceStartup;
 
         for (int i = 0; i < this.occludees.Count; i++)
-            this.visableFlag.Add(true);
+            this.occludeeVisable.Add(true);
+
+        for (int i = 0; i < this.occluders.Count; i++)
+            this.occluderVisable.Add(true);
 
         Vector3 viewPos = this.transform.position;
         Vector3 viewDir = this.transform.forward;
@@ -63,33 +67,38 @@ public class AntiPortalCuller : MonoBehaviour {
         for (int i = 0; i < occluderNum; i++)
         {
             Occluder occluder = this.occluders[i];
+            if (this.occluderVisable[i] == false)
+                continue;
 
             List<Plane> cullPlanes = occluder.CalculateCullPlanes(viewPos, viewDir);
 
             for (int occludeeIdx = 0; occludeeIdx < this.occludees.Count; occludeeIdx++)
             {
-                if (this.visableFlag[occludeeIdx] == false)
+                if (this.occludeeVisable[occludeeIdx] == false)
                     continue;
 
                 Bounds bounds = this.occludees[occludeeIdx].GetBounds();
 
                 if (this.CullAABB(cullPlanes, bounds))
-                    this.visableFlag[occludeeIdx] = false;
+                    this.occludeeVisable[occludeeIdx] = false;
+            }
+
+            for(int j = i+1; j < occluderNum; j++)
+            {
+                if (this.CullOccluder(cullPlanes, this.occluders[i]))
+                    this.occluderVisable[j] = false;
             }
         }
 
         Debug.Log("Cull cost: " + (Time.realtimeSinceStartup - fTime) * 1000);
 
         for (int i = 0; i < this.occludees.Count; i++)
-        {
-            if(this.visableFlag[i] == false)
-                this.occludees[i].SetVisable(false);
-        }
+            this.occludees[i].SetVisable(this.occludeeVisable[i]);
 
         int culledNum = 0;
         for (int i = 0; i < this.occludees.Count; i++)
         {
-            if (this.visableFlag[i] == false)
+            if (this.occludeeVisable[i] == false)
                 culledNum++;
         }
         Debug.Log("Total: " + this.occludees.Count);
@@ -98,22 +107,22 @@ public class AntiPortalCuller : MonoBehaviour {
 
     private void OnPostRender()
     {
-        if (this.visableFlag.Count > 0)
+        if (this.occludeeVisable.Count > 0)
         {
             for (int i = 0; i < this.occludees.Count; i++)
-            {
-                if (this.visableFlag[i] == false)
-                    this.occludees[i].SetVisable(true);
-            }
+                this.occludees[i].SetVisable(true);
 
 #if UNITY_EDITOR
             //debug mode
             GL.Clear(true, false, Color.black);
+            if (this.lineMaterial == null)
+                this.lineMaterial = new Material(Shader.Find("Hidden/Internal-Colored"));
+            this.lineMaterial.SetPass(0);
             GL.Begin(GL.LINES);
             GL.Color(Color.red);
             for (int i = 0; i < this.occludees.Count; i++)
             {
-                if (this.visableFlag[i] == false)
+                if (this.occludeeVisable[i] == false)
                 {
                     Bounds bound = this.occludees[i].GetBounds();
                     Vector3 min = bound.min;
@@ -163,7 +172,7 @@ public class AntiPortalCuller : MonoBehaviour {
             this.occludedBounds.Clear();
             for (int i = 0; i < this.occludees.Count; i++)
             {
-                if (this.visableFlag[i] == false)
+                if (this.occludeeVisable[i] == false)
                 {
                     this.occludedBounds.Add(this.occludees[i].GetBounds());
                 }
@@ -174,7 +183,8 @@ public class AntiPortalCuller : MonoBehaviour {
         this.occludees.Clear();
         this.occluders.Clear();
 
-        this.visableFlag.Clear();
+        this.occludeeVisable.Clear();
+        this.occluderVisable.Clear();
         this.rendererNum = 0;
     }
 
@@ -232,7 +242,13 @@ public class AntiPortalCuller : MonoBehaviour {
     //    return true;
     //}
 
+    private bool CullOccluder(List<Plane> planes, Occluder occluder)
+    {
+        return false;
+    }
+
 #if UNITY_EDITOR
+    Material lineMaterial;
     private void OnDrawGizmos()
     {
         //draw select occluder

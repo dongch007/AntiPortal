@@ -5,34 +5,21 @@ using UnityEngine;
 public class Occludee : MonoBehaviour {
 
     [SerializeField]
-    private bool isStatic = true;
+    protected bool isStatic = true;
 
-    [SerializeField]
-    private bool isGroup = false;
+    private new Renderer renderer;
 
-    private List<Renderer> renderers = new List<Renderer>();
+    protected Bounds bounds;
+    protected int lastFrame = -1;
 
-    private Bounds bounds;
-    private int lastFrame = -1;
+    protected bool isVisable = true;
 
-	void Start ()
+    void Start ()
     {
-        if (this.isGroup)
-        {
-            Renderer[] groupRenderers = this.GetComponentsInChildren<Renderer>();
-            if (groupRenderers != null)
-                renderers.AddRange(groupRenderers);
-        }
-        else
-        {
-            Renderer renderer = this.GetComponent<Renderer>();
-            if (renderer != null)
-                renderers.Add(renderer);
-        }
-
+        this.renderer = this.GetComponent<Renderer>();
 
         if (this.isStatic)
-            this.CalculateBounds();
+            this.bounds = this.renderer.bounds;
     }
 
     private void OnWillRenderObject()
@@ -40,12 +27,12 @@ public class Occludee : MonoBehaviour {
         AntiPortalCuller culler = Camera.current.GetComponent<AntiPortalCuller>();
         if (culler != null)
         {
-            if(this.isStatic == false)
+            if (this.isStatic == false)
             {
                 //a GameObject maybe render multiple times in one frame, just update bounds once
                 if (this.lastFrame != Time.frameCount)
                 {
-                    this.CalculateBounds();
+                    this.bounds = this.renderer.bounds;
                     this.lastFrame = Time.frameCount;
                 }
             }
@@ -54,34 +41,28 @@ public class Occludee : MonoBehaviour {
         }
     }
 
-    //only when this.
-    private void CalculateBounds()
-    {
-        this.bounds = this.renderers[0].bounds;
-
-        for(int i = 1; i < this.renderers.Count; i++)
-        {
-            this.bounds.Encapsulate(this.renderers[i].bounds);
-        }
-    }
-
     public Bounds GetBounds()
     {
         return this.bounds;
     }
 
-    public void SetVisable(bool visable)
+    public virtual void SetVisable(bool visable)
     {
-        foreach (Renderer renderer in this.renderers)
+        if(this.isVisable != visable)
         {
-            renderer.enabled = visable;
-            //renderer.material.color = visable ? Color.white : Color.red;
+            this.renderer.enabled = visable;
+            this.isVisable = visable;
         }
     }
 
-    public int GetRendererNum()
+    public bool IsVisable()
     {
-        return this.renderers.Count;
+        return this.isVisable;
+    }
+
+    public virtual int GetRendererNum()
+    {
+        return 1;
     }
 
     private void OnDrawGizmosSelected()
