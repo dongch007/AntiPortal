@@ -85,6 +85,9 @@ public class AntiPortalCuller : MonoBehaviour {
 
             for(int j = i+1; j < occluderNum; j++)
             {
+                if (this.occluderVisable[j] == false)
+                    continue;
+
                 if (this.CullOccluder(cullPlanes, this.occluders[i]))
                     this.occluderVisable[j] = false;
             }
@@ -189,6 +192,7 @@ public class AntiPortalCuller : MonoBehaviour {
     }
 
     //http://old.cescg.org/CESCG-2002/DSykoraJJelinek/
+    //todo SIMD https://fgiesen.wordpress.com/2010/10/17/view-frustum-culling/
     private bool CullAABB(List<Plane> planes, Bounds bounds)
     {
         foreach (Plane plane in planes)
@@ -198,7 +202,7 @@ public class AntiPortalCuller : MonoBehaviour {
                 return false;
 
             //todo
-            //precal abs normal
+            //precal abs(normal)
             Vector3 normal = plane.normal;
             normal.x = Mathf.Abs(normal.x);
             normal.y = Mathf.Abs(normal.y);
@@ -242,6 +246,8 @@ public class AntiPortalCuller : MonoBehaviour {
     //    return true;
     //}
 
+    //todo
+    //<<Real-time collection detection>> TestOBBPlane
     private bool CullOccluder(List<Plane> planes, Occluder occluder)
     {
         return false;
