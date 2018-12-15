@@ -17,7 +17,7 @@ public class GroupedOccludee : Occludee {
     private void OnWillRenderObject()
     {
         AntiPortalCuller culler = Camera.current.GetComponent<AntiPortalCuller>();
-        if (culler != null)
+        if (culler != null && culler.enabled)
         {
             if (this.isStatic == false)
             {

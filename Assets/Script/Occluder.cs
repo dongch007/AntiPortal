@@ -90,7 +90,7 @@ public class Occluder : MonoBehaviour
     {
         Camera camera = Camera.current;
         AntiPortalCuller culler = camera.GetComponent<AntiPortalCuller>();
-        if (culler != null)
+        if (culler != null && culler.enabled)
         {
             Vector2 min = Vector2.positiveInfinity;
             Vector2 max = Vector2.negativeInfinity;

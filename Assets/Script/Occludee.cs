@@ -26,7 +26,7 @@ public class Occludee : MonoBehaviour {
     private void OnWillRenderObject()
     {
         AntiPortalCuller culler = Camera.current.GetComponent<AntiPortalCuller>();
-        if (culler != null)
+        if (culler != null && culler.enabled)
         {
             if (this.isStatic == false)
             {
@@ -52,6 +52,7 @@ public class Occludee : MonoBehaviour {
         if(this.isVisable != visable)
         {
             this.renderer.enabled = visable;
+
             this.isVisable = visable;
         }
     }
