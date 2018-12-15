@@ -2,10 +2,11 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+[DisallowMultipleComponent]
 public class Occluder : MonoBehaviour
 {
     public Vector3 center = Vector3.zero;
-    public Vector3 extends = Vector3.one;
+    public Vector3 extents = Vector3.one;
 
     struct Face
     {
@@ -48,8 +49,8 @@ public class Occluder : MonoBehaviour
         //  | /     |/
         //  0-------3
 
-        Vector3 min = this.center - extends;
-        Vector3 max = this.center + extends;
+        Vector3 min = this.center - this.extents;
+        Vector3 max = this.center + this.extents;
         this.corners[0].Set(min.x, min.y, min.z);
         this.corners[1].Set(min.x, min.y, max.z);
         this.corners[2].Set(max.x, min.y, max.z);
@@ -165,8 +166,13 @@ public class Occluder : MonoBehaviour
         return this.cullPlanes;
     }
 
+    public Vector3[] GetCorners()
+    {
+        return this.corners;
+    }
+
 #if UNITY_EDITOR
-    public Vector3[] getContour(Vector3 viewPos, Vector3 viewDir)
+    public Vector3[] GetContour(Vector3 viewPos, Vector3 viewDir)
     {
         foreach (Face face in this.faces)
         {
@@ -207,12 +213,57 @@ public class Occluder : MonoBehaviour
         return contour;
     }
 
+    public Vector3[] GetWire()
+    {
+        Vector3[] wire = new Vector3[24];
+        //bottom
+        wire[0] = this.corners[0];
+        wire[1] = this.corners[1];
+
+        wire[2] = this.corners[1];
+        wire[3] = this.corners[2];
+
+        wire[4] = this.corners[2];
+        wire[5] = this.corners[3];
+
+        wire[6] = this.corners[3];
+        wire[7] = this.corners[0];
+
+        //top
+        wire[8] = this.corners[4];
+        wire[9] = this.corners[5];
+
+        wire[10] = this.corners[5];
+        wire[11] = this.corners[6];
+
+        wire[12] = this.corners[6];
+        wire[13] = this.corners[7];
+
+        wire[14] = this.corners[7];
+        wire[15] = this.corners[4];
+
+        //vertical
+        wire[16] = this.corners[0];
+        wire[17] = this.corners[5];
+
+        wire[18] = this.corners[1];
+        wire[19] = this.corners[5];
+
+        wire[20] = this.corners[2];
+        wire[21] = this.corners[6];
+
+        wire[22] = this.corners[3];
+        wire[23] = this.corners[7];
+
+        return wire;
+    }
+
     private void OnDrawGizmos()
     {
         //Gizmos.color = Color.red;
         //Gizmos.DrawWireMesh(AntiPortalHelper.GetCube(), this.transform.position, this.transform.rotation, Vector3.Scale(this.extends, this.transform.localScale)*2.0f);
         Gizmos.color = new Color(1.0f, 0.0f, 0.0f, 0.5f);
-        Gizmos.DrawMesh(AntiPortalHelper.GetCube(), this.transform.position, this.transform.rotation, Vector3.Scale(this.extends, this.transform.localScale) * 2.0f);
+        Gizmos.DrawMesh(AntiPortalHelper.GetCube(), this.transform.position, this.transform.rotation, Vector3.Scale(this.extents, this.transform.localScale) * 2.0f);
         //Gizmos.color = Color.red;
         //Gizmos.DrawWireMesh(AntiPortalHelper.GetCube(), this.transform.position, this.transform.rotation, Vector3.Scale(this.extends, this.transform.localScale) * 2.0f);
     }

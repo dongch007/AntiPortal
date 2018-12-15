@@ -4,18 +4,11 @@ using UnityEngine;
 
 public class GroupedOccludee : Occludee {
 
-    private List<Renderer> renderers;
+    private List<Renderer> renderers = new List<Renderer>();
 
     void Start()
     {
-        Renderer[] groupRenderers = this.GetComponentsInChildren<Renderer>();
-        if(groupRenderers == null)
-        {
-            Debug.LogError("1 renderer at least");
-            this.enabled = false;
-        }
-
-        this.renderers = new List<Renderer>(groupRenderers);
+        this.GetComponentsInChildren<Renderer>(this.renderers);
 
         if (this.isStatic)
             this.CalculateBounds();

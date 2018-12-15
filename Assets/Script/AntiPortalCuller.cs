@@ -88,15 +88,17 @@ public class AntiPortalCuller : MonoBehaviour {
                 if (this.occluderVisable[j] == false)
                     continue;
 
-                if (this.CullOccluder(cullPlanes, this.occluders[i]))
+                if (this.CullOccluder(cullPlanes, this.occluders[j]))
                     this.occluderVisable[j] = false;
             }
         }
 
         Debug.Log("Cull cost: " + (Time.realtimeSinceStartup - fTime) * 1000);
 
+        fTime = Time.realtimeSinceStartup;
         for (int i = 0; i < this.occludees.Count; i++)
             this.occludees[i].SetVisable(this.occludeeVisable[i]);
+        Debug.Log("Visable cost: " + (Time.realtimeSinceStartup - fTime) * 1000);
 
         int culledNum = 0;
         for (int i = 0; i < this.occludees.Count; i++)
@@ -122,56 +124,38 @@ public class AntiPortalCuller : MonoBehaviour {
                 this.lineMaterial = new Material(Shader.Find("Hidden/Internal-Colored"));
             this.lineMaterial.SetPass(0);
             GL.Begin(GL.LINES);
+            //Draw culled occludee
             GL.Color(Color.red);
             for (int i = 0; i < this.occludees.Count; i++)
             {
                 if (this.occludeeVisable[i] == false)
                 {
                     Bounds bound = this.occludees[i].GetBounds();
-                    Vector3 min = bound.min;
-                    Vector3 max = bound.max;
-                    //front
-                    GL.Vertex3(min.x, min.y, min.z);
-                    GL.Vertex3(max.x, min.y, min.z);
-
-                    GL.Vertex3(min.x, min.y, min.z);
-                    GL.Vertex3(min.x, max.y, min.z);
-
-                    GL.Vertex3(min.x, max.y, min.z);
-                    GL.Vertex3(max.x, max.y, min.z);
-
-                    GL.Vertex3(max.x, max.y, min.z);
-                    GL.Vertex3(max.x, min.y, min.z);
-
-                    //back
-                    GL.Vertex3(min.x, min.y, max.z);
-                    GL.Vertex3(max.x, min.y, max.z);
-
-                    GL.Vertex3(min.x, min.y, max.z);
-                    GL.Vertex3(min.x, max.y, max.z);
-
-                    GL.Vertex3(min.x, max.y, max.z);
-                    GL.Vertex3(max.x, max.y, max.z);
-
-                    GL.Vertex3(max.x, max.y, max.z);
-                    GL.Vertex3(max.x, min.y, max.z);
-
-                    //
-                    GL.Vertex3(min.x, min.y, min.z);
-                    GL.Vertex3(min.x, min.y, max.z);
-
-                    GL.Vertex3(min.x, max.y, min.z);
-                    GL.Vertex3(min.x, max.y, max.z);
-
-                    GL.Vertex3(max.x, min.y, min.z);
-                    GL.Vertex3(max.x, min.y, max.z);
-
-                    GL.Vertex3(max.x, max.y, min.z);
-                    GL.Vertex3(max.x, max.y, max.z);
+                    Vector3[] wire = AntiPortalHelper.GetBoundsWire(bound);
+                    foreach (Vector3 v in wire)
+                    {
+                        GL.Vertex(v);
+                    }
                 }
             }
+
+            //Draw culled occluder
+            GL.Color(Color.blue);
+            for (int i = 0; i < this.occluders.Count; i++)
+            {
+                if (this.occluderVisable[i] == false)
+                {
+                    Vector3[] wire = this.occluders[i].GetWire();
+                    foreach(Vector3 v in wire)
+                    {
+                        GL.Vertex(v);
+                    }
+                }
+            }
+
             GL.End();
 
+            //draw culled occludee in editor view
             this.occludedBounds.Clear();
             for (int i = 0; i < this.occludees.Count; i++)
             {
@@ -248,9 +232,49 @@ public class AntiPortalCuller : MonoBehaviour {
 
     //todo
     //<<Real-time collection detection>> TestOBBPlane
+    //private bool CullOccluder(List<Plane> planes, Occluder occluder)
+    //{
+    //    Vector3 center = occluder.transform.TransformPoint(occluder.center);
+    //    //Vector3 extents = occluder.transform.TransformDirection(occluder.extents);
+    //    Vector3 extents = occluder.extents;
+    //    foreach (Plane plane in planes)
+    //    {
+    //        float distance = plane.GetDistanceToPoint(center);
+    //        if (distance >= 0)
+    //            return false;
+
+    //        Vector3 normal = occluder.transform.TransformDirection(plane.normal);
+    //        normal.x = Mathf.Abs(normal.x);
+    //        normal.y = Mathf.Abs(normal.y);
+    //        normal.z = Mathf.Abs(normal.z);
+    //        float radius = Vector3.Dot(extents, normal);
+    //        //Vector3 normal = plane.normal;
+    //        //normal.x = Mathf.Abs(normal.x);
+    //        //normal.y = Mathf.Abs(normal.y);
+    //        //normal.z = Mathf.Abs(normal.z);
+    //        //float radius = Vector3.Dot(extents, normal);
+
+    //        if ((distance + radius) > 0)
+    //            return false;
+    //    }
+
+    //    return true;
+    //}
+
     private bool CullOccluder(List<Plane> planes, Occluder occluder)
     {
-        return false;
+        Vector3[] corners = occluder.GetCorners();
+
+        foreach (Plane plane in planes)
+        {
+            foreach (Vector3 corner in corners)
+            {
+                if (plane.GetDistanceToPoint(corner) > 0)
+                    return false;
+            }
+        }
+
+        return true;
     }
 
 #if UNITY_EDITOR
@@ -267,7 +291,7 @@ public class AntiPortalCuller : MonoBehaviour {
                 Vector3 viewPos = this.transform.position;
                 Vector3 viewDir = this.transform.forward;
 
-                Vector3[] contour = occluder.getContour(viewPos, viewDir);
+                Vector3[] contour = occluder.GetContour(viewPos, viewDir);
                 Gizmos.color = Color.white;
                 foreach (Vector3 v in contour)
                 {
@@ -287,6 +311,7 @@ public class AntiPortalCuller : MonoBehaviour {
             //Gizmos.DrawWireCube(bound.center, bound.extents*2);
             Gizmos.DrawCube(bound.center, bound.extents * 2.001f);
         }
+        //sizeof()
     }
 #endif
 }
