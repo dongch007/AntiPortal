@@ -42,6 +42,7 @@ public class AntiPortalCuller : MonoBehaviour {
 
     private List<bool> occludeeVisable = new List<bool>();
     private List<bool> occluderVisable = new List<bool>();
+    private float setVisableTime = 0.0f;
     private void OnPreRender()
     {
         if (this.occluders.Count == 0)
@@ -59,7 +60,6 @@ public class AntiPortalCuller : MonoBehaviour {
             this.occluderVisable.Add(true);
 
         Vector3 viewPos = this.transform.position;
-        Vector3 viewDir = this.transform.forward;
 
         this.occluders.Sort((x, y) => -x.ScreenArea.CompareTo(y.ScreenArea));
         int occluderNum = Mathf.Min(this.occluders.Count, this.maxOccluderNum);
@@ -70,7 +70,7 @@ public class AntiPortalCuller : MonoBehaviour {
             if (this.occluderVisable[i] == false)
                 continue;
 
-            List<Plane> cullPlanes = occluder.CalculateCullPlanes(viewPos, viewDir);
+            List<Plane> cullPlanes = occluder.CalculateCullPlanes(viewPos);
 
             for (int occludeeIdx = 0; occludeeIdx < this.occludees.Count; occludeeIdx++)
             {
@@ -95,28 +95,17 @@ public class AntiPortalCuller : MonoBehaviour {
 
         Debug.Log("Cull cost: " + (Time.realtimeSinceStartup - fTime) * 1000);
 
+        setVisableTime = 0.0f;
         fTime = Time.realtimeSinceStartup;
         for (int i = 0; i < this.occludees.Count; i++)
             this.occludees[i].SetVisable(this.occludeeVisable[i]);
-        Debug.Log("Visable cost: " + (Time.realtimeSinceStartup - fTime) * 1000);
-
-        int culledNum = 0;
-        for (int i = 0; i < this.occludees.Count; i++)
-        {
-            if (this.occludeeVisable[i] == false)
-                culledNum++;
-        }
-        Debug.Log("Total: " + this.occludees.Count);
-        Debug.Log("Culled: " + culledNum);
+        setVisableTime += Time.realtimeSinceStartup - fTime;
     }
 
     private void OnPostRender()
     {
         if (this.occludeeVisable.Count > 0)
         {
-            for (int i = 0; i < this.occludees.Count; i++)
-                this.occludees[i].SetVisable(true);
-
 #if UNITY_EDITOR
             //debug mode
             GL.Clear(true, false, Color.black);
@@ -165,7 +154,23 @@ public class AntiPortalCuller : MonoBehaviour {
                 }
             }
 #endif
+
+            float fTime = Time.realtimeSinceStartup;
+            for (int i = 0; i < this.occludees.Count; i++)
+                this.occludees[i].SetVisable(true);
+            setVisableTime += Time.realtimeSinceStartup - fTime;
+            Debug.Log("Visable cost: " + setVisableTime * 1000);
+
+            int culledNum = 0;
+            for (int i = 0; i < this.occludees.Count; i++)
+            {
+                if (this.occludeeVisable[i] == false)
+                    culledNum++;
+            }
+            Debug.Log("Total: " + this.occludees.Count);
+            Debug.Log("Culled: " + culledNum);
         }
+
 
         this.occludees.Clear();
         this.occluders.Clear();
@@ -281,6 +286,9 @@ public class AntiPortalCuller : MonoBehaviour {
     Material lineMaterial;
     private void OnDrawGizmos()
     {
+        if (Application.isPlaying == false)
+            return;
+
         //draw select occluder
         GameObject go = UnityEditor.Selection.activeGameObject;
         if(go != null)
@@ -289,9 +297,8 @@ public class AntiPortalCuller : MonoBehaviour {
             if (occluder != null)
             {
                 Vector3 viewPos = this.transform.position;
-                Vector3 viewDir = this.transform.forward;
 
-                Vector3[] contour = occluder.GetContour(viewPos, viewDir);
+                Vector3[] contour = occluder.GetContour(viewPos);
                 Gizmos.color = Color.white;
                 foreach (Vector3 v in contour)
                 {

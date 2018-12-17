@@ -34,6 +34,8 @@ public class Occluder : MonoBehaviour
     }
 
     private Vector3[] corners = new Vector3[8];
+    private bool[] cornerVisible = new bool[8];
+
     private Face[] faces = new Face[6];
 
     private List<Plane> cullPlanes = new List<Plane>();
@@ -94,13 +96,44 @@ public class Occluder : MonoBehaviour
         {
             Vector2 min = Vector2.positiveInfinity;
             Vector2 max = Vector2.negativeInfinity;
-            foreach (Vector3 corner in this.corners)
+            for(int i = 0; i < 8; i++)
             {
+                Vector3 corner = this.corners[i];
+
                 Vector3 screenPos = camera.WorldToViewportPoint(corner);
 
                 //if occluder cross with camera's near plane, ignore this occluder
-                if (screenPos.z < 0)
+                if (screenPos.z < camera.nearClipPlane)
                     return;
+
+                //if occluder cross with camera's far plane, this occluder maybe too far and no renderer in frustum will be occluded
+                if (screenPos.z > camera.farClipPlane)
+                    return;
+
+                bool visible = true;
+                if (screenPos.x < -1.0f)
+                {
+                    screenPos.x = -1.0f;
+                    visible = false;
+                }
+                else if (screenPos.x > 1.0f)
+                {
+                    screenPos.x = 1.0f;
+                    visible = false;
+                }
+
+                if (screenPos.y < -1.0f)
+                {
+                    screenPos.y = -1.0f;
+                    visible = false;
+                }
+                else if (screenPos.y > 1.0f)
+                {
+                    screenPos.y = 1.0f;
+                    visible = false;
+                }
+
+                this.cornerVisible[i] = visible;
 
                 if (screenPos.x < min.x)
                     min.x = screenPos.x;
@@ -113,16 +146,6 @@ public class Occluder : MonoBehaviour
                     max.y = screenPos.y;
             }
 
-            if (min.x < -1.0f)
-                min.x = -1.0f;
-            if (min.y < -1.0f)
-                min.y = -1.0f;
-
-            if (max.x > 1.0f)
-                max.x = 1.0f;
-            if (max.y > 1.0f)
-                max.y = 1.0f;
-
             this.screenArea = (max.x - min.x) * (max.y - min.y);
 
             culler.AddOccluder(this);
@@ -131,25 +154,34 @@ public class Occluder : MonoBehaviour
 
     //http://www.gamasutra.com/view/feature/131388/rendering_the_great_outdoors_fast_.php?page=3
     HashSet<int> edges = new HashSet<int>();
-    public List<Plane> CalculateCullPlanes(Vector3 viewPos, Vector3 viewDir)
+    public List<Plane> CalculateCullPlanes(Vector3 viewPos)
     {
         this.cullPlanes.Clear();
 
-        foreach (Face face in this.faces)
+        for(int faceIdx = 0; faceIdx < this.faces.Length; faceIdx++)
         {
-            if(Vector3.Dot(face.plane.normal, viewDir) < 0)
-            {
-                this.cullPlanes.Add(face.plane);
+            Face face = this.faces[faceIdx];
 
-                for(int i = 0; i <4; i++)
-                {
-                    int edge = face.egdes[i];
-                    int edgeCCW = face.egdesCCW[i];
-                    if (this.edges.Contains(edgeCCW))
-                        this.edges.Remove(edgeCCW);
-                    else
-                        this.edges.Add(edge);
-                }
+            if (this.IsFaceVisible(face) == false)
+                continue;
+
+            if (this.IsBackFace(viewPos, face))
+                continue;
+
+            this.cullPlanes.Add(face.plane);
+
+            for (int i = 0; i < 4; i++)
+            {
+                int edge = face.egdes[i];
+
+                if (this.IsEdgeVisible(edge) == false)
+                    continue;
+
+                int edgeCCW = face.egdesCCW[i];
+                if (this.edges.Contains(edgeCCW))
+                    this.edges.Remove(edgeCCW);
+                else
+                    this.edges.Add(edge);
             }
         }
 
@@ -166,27 +198,73 @@ public class Occluder : MonoBehaviour
         return this.cullPlanes;
     }
 
+    private bool IsEdgeVisible(int edge)
+    {
+        if (this.cornerVisible[edge >> 8])
+            return true;
+
+        if (this.cornerVisible[edge & 0x00FF])
+            return true;
+
+        return false;
+    }
+
+    private bool IsFaceVisible(Face face)
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            int edge = face.egdes[i];
+            if (this.cornerVisible[edge >> 8] == true)
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool IsBackFace(Vector3 viewPos, Face face)
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            int edge = face.egdes[i];
+            Vector3 corner = this.corners[edge >> 8];
+            Vector3 viewDir = corner - viewPos;
+            if (Vector3.Dot(face.plane.normal, viewDir) < 0)
+                return false;
+
+        }
+
+        return true;
+    }
+
     public Vector3[] GetCorners()
     {
         return this.corners;
     }
 
 #if UNITY_EDITOR
-    public Vector3[] GetContour(Vector3 viewPos, Vector3 viewDir)
+    public Vector3[] GetContour(Vector3 viewPos)
     {
-        foreach (Face face in this.faces)
+        for (int faceIdx = 0; faceIdx < this.faces.Length; faceIdx++)
         {
-            if (Vector3.Dot(face.plane.normal, viewDir) < 0)
+            Face face = this.faces[faceIdx];
+
+            if (this.IsFaceVisible(face) == false)
+                continue;
+
+            if (this.IsBackFace(viewPos, face))
+                continue;
+
+            for (int i = 0; i < 4; i++)
             {
-                for (int i = 0; i < 4; i++)
-                {
-                    int edge = face.egdes[i];
-                    int edgeCCW = face.egdesCCW[i];
-                    if (this.edges.Contains(edgeCCW))
-                        this.edges.Remove(edgeCCW);
-                    else
-                        this.edges.Add(edge);
-                }
+                int edge = face.egdes[i];
+                if (this.IsEdgeVisible(edge) == false)
+                    continue;
+
+                int edgeCCW = face.egdesCCW[i];
+                if (this.edges.Contains(edgeCCW))
+                    this.edges.Remove(edgeCCW);
+                else
+                    this.edges.Add(edge);
             }
         }
 
