@@ -288,6 +288,8 @@ public class Occluder : MonoBehaviour
             contour[i] = this.corners[contourIdx[i]];
         }
 
+        FrameTimingManager.CaptureFrameTimings();
+
         return contour;
     }
 
@@ -376,7 +378,10 @@ public class Occluder : MonoBehaviour
         {
             GUIStyle style = new GUIStyle();
             style.fontSize = 17;
-            UnityEditor.Handles.Label(this.transform.position, this.screenArea.ToString(), style);
+            string info = this.screenArea.ToString();
+            info += "\n";
+            info += this.cullPlanes.Count.ToString();
+            UnityEditor.Handles.Label(this.transform.position, info, style);
         }
     }
 #endif

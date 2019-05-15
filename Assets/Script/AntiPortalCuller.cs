@@ -93,7 +93,7 @@ public class AntiPortalCuller : MonoBehaviour {
             }
         }
 
-        Debug.Log("Cull cost: " + (Time.realtimeSinceStartup - fTime) * 1000);
+        //Debug.Log("Cull cost: " + (Time.realtimeSinceStartup - fTime) * 1000);
 
         setVisableTime = 0.0f;
         fTime = Time.realtimeSinceStartup;
@@ -107,51 +107,63 @@ public class AntiPortalCuller : MonoBehaviour {
         if (this.occludeeVisable.Count > 0)
         {
 #if UNITY_EDITOR
-            //debug mode
-            GL.Clear(true, false, Color.black);
-            if (this.lineMaterial == null)
-                this.lineMaterial = new Material(Shader.Find("Hidden/Internal-Colored"));
-            this.lineMaterial.SetPass(0);
-            GL.Begin(GL.LINES);
-            //Draw culled occludee
-            GL.Color(Color.red);
-            for (int i = 0; i < this.occludees.Count; i++)
+            if (this.isDebugMode)
             {
-                if (this.occludeeVisable[i] == false)
+                //debug mode
+                GL.Clear(true, false, Color.black);
+                if (this.lineMaterial == null)
+                    this.lineMaterial = new Material(Shader.Find("Hidden/Internal-Colored"));
+                this.lineMaterial.SetPass(0);
+                GL.Begin(GL.LINES);
+                //Draw culled occludee
+                GL.Color(Color.red);
+                for (int i = 0; i < this.occludees.Count; i++)
                 {
-                    Bounds bound = this.occludees[i].GetBounds();
-                    Vector3[] wire = AntiPortalHelper.GetBoundsWire(bound);
-                    foreach (Vector3 v in wire)
+                    if (this.occludeeVisable[i] == false)
                     {
-                        GL.Vertex(v);
+                        Bounds bound = this.occludees[i].GetBounds();
+                        Vector3[] wire = AntiPortalHelper.GetBoundsWire(bound);
+                        foreach (Vector3 v in wire)
+                        {
+                            GL.Vertex(v);
+                        }
                     }
                 }
-            }
 
-            //Draw culled occluder
-            GL.Color(Color.blue);
-            for (int i = 0; i < this.occluders.Count; i++)
-            {
-                if (this.occluderVisable[i] == false)
+                //Draw culled occluder
+                GL.Color(Color.blue);
+                for (int i = 0; i < this.occluders.Count; i++)
                 {
-                    Vector3[] wire = this.occluders[i].GetWire();
-                    foreach(Vector3 v in wire)
+                    if (this.occluderVisable[i] == false)
                     {
-                        GL.Vertex(v);
+                        Vector3[] wire = this.occluders[i].GetWire();
+                        foreach (Vector3 v in wire)
+                        {
+                            GL.Vertex(v);
+                        }
                     }
                 }
-            }
 
-            GL.End();
+                GL.End();
 
-            //draw culled occludee in editor view
-            this.occludedBounds.Clear();
-            for (int i = 0; i < this.occludees.Count; i++)
-            {
-                if (this.occludeeVisable[i] == false)
+                //draw culled occludee in editor view
+                this.occludedBounds.Clear();
+                for (int i = 0; i < this.occludees.Count; i++)
                 {
-                    this.occludedBounds.Add(this.occludees[i].GetBounds());
+                    if (this.occludeeVisable[i] == false)
+                    {
+                        this.occludedBounds.Add(this.occludees[i].GetBounds());
+                    }
                 }
+
+                int culledNum = 0;
+                for (int i = 0; i < this.occludees.Count; i++)
+                {
+                    if (this.occludeeVisable[i] == false)
+                        culledNum++;
+                }
+                //Debug.Log("Total: " + this.occludees.Count);
+                //Debug.Log("Culled: " + culledNum);
             }
 #endif
 
@@ -159,16 +171,7 @@ public class AntiPortalCuller : MonoBehaviour {
             for (int i = 0; i < this.occludees.Count; i++)
                 this.occludees[i].SetVisable(true);
             setVisableTime += Time.realtimeSinceStartup - fTime;
-            Debug.Log("Visable cost: " + setVisableTime * 1000);
-
-            int culledNum = 0;
-            for (int i = 0; i < this.occludees.Count; i++)
-            {
-                if (this.occludeeVisable[i] == false)
-                    culledNum++;
-            }
-            Debug.Log("Total: " + this.occludees.Count);
-            Debug.Log("Culled: " + culledNum);
+            //Debug.Log("Visable cost: " + setVisableTime * 1000);
         }
 
 
@@ -283,7 +286,8 @@ public class AntiPortalCuller : MonoBehaviour {
     }
 
 #if UNITY_EDITOR
-    Material lineMaterial;
+    public bool isDebugMode = true;
+    private Material lineMaterial;
     private void OnDrawGizmos()
     {
         if (Application.isPlaying == false)
